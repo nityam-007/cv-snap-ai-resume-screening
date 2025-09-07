@@ -1,4 +1,4 @@
-# type: ignore
+#type: ignore
 """
 CV Snap - Main FastAPI Application
 AI-Powered Resume Screening and Ranking System
@@ -72,7 +72,9 @@ class CVSnapProcessor:
             dict: Processing results with ranked candidates
         """
         try:
+            # Clear previous data before starting new analysis
             self.neo4j_service.clear_database()
+            
             # Generate unique job ID
             job_id = f"job_{uuid.uuid4().hex[:8]}"
             
@@ -268,7 +270,7 @@ async def health_check():
     """Detailed health check"""
     try:
         # Test Neo4j connection
-        with neo4j_service.driver.session() as session:# type: ignore
+        with neo4j_service.driver.session() as session:
             session.run("RETURN 1")
         
         return {
