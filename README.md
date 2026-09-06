@@ -23,10 +23,13 @@ An intelligent resume screening and ranking system that uses AI to analyze job d
 - **Pydantic** for data validation
 
 ### Frontend
-- **React 18** with TypeScript
-- **Modern CSS3** with responsive design
+- **React 19** with TypeScript
+- **Vite** for lightning-fast build and development
+- **Tailwind CSS v4** for modern utility-first styling
+- **HeroUI v3** for accessible, headless interactive components
+- **Phosphor Icons** for clean, minimal iconography
 - **File upload** with drag-and-drop support
-- **Real-time processing** indicators
+- **Light/Dark Mode** with system preference detection
 
 ### Database
 - **Neo4j** for storing candidate-skill-job relationships
@@ -87,13 +90,13 @@ cp .env.example .env
 ### 5. Frontend Setup
 
 ```bash
-cd ../frontend
+cd frontend
 
 # Install dependencies
 npm install
 
 # Start development server
-npm start
+npm run dev
 ```
 
 ### 6. Start the Backend
@@ -198,16 +201,16 @@ cv-snap-ai-resume-screening/
 ### Running in Development Mode
 
 ```bash
-# Terminal 1: Start Neo4j database (using Neo4j Desktop)
+# Terminal 1: Start Neo4j database (using Neo4j Desktop or Docker)
 
 # Terminal 2: Backend
 cd backend
-source cv_snap_env/bin/activate
-python main.py
+source .venv/bin/activate  # Activate virtual environment (if named .venv)
+python main.py             # Or run via uvicorn: uvicorn main:app --reload
 
 # Terminal 3: Frontend
 cd frontend  
-npm start
+npm run dev
 ```
 
 ## 🐛 Troubleshooting
