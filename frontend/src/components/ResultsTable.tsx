@@ -1,547 +1,483 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  User, 
-  Mail, 
-  Award, 
-  Target,
-  ChevronDown,
-  ChevronUp,
-  RotateCcw,
-  Download,
+import React, { useState, useMemo } from "react";
+import {
+  TrendUp,
+  TrendDown,
+  ArrowCounterClockwise,
+  DownloadSimple,
   Eye,
-  AlertTriangle
-} from 'lucide-react';
-import { AnalysisResults, RankedCandidate, getMatchScoreBadgeColor, getMatchLabel } from '../services/api';
+  Warning,
+  CaretUp,
+  CaretDown,
+  SlidersHorizontal,
+  X,
+} from "@phosphor-icons/react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface JobInfo {
+  title: string;
+  total_required_skills?: number;
+  experience_level?: string;
+}
+
+interface RankedCandidate {
+  candidate_id: string;
+  name: string;
+  email: string;
+  match_score: number;
+  skill_coverage?: number;
+  matched_skills?: number;
+  total_required_skills?: number;
+  explanation: string;
+}
+
+interface ProcessingError {
+  filename: string;
+  error: string;
+}
+
+interface AnalysisResults {
+  job_id: string;
+  job_info: JobInfo;
+  total_resumes?: number;
+  successfully_processed?: number;
+  processing_errors?: ProcessingError[];
+  ranked_candidates: RankedCandidate[];
+  processing_time?: string;
+}
 
 interface ResultsTableProps {
   results: AnalysisResults;
   onReset: () => void;
 }
 
-type SortField = 'match_score' | 'name' | 'skill_coverage' | 'matched_skills';
-type SortDirection = 'asc' | 'desc';
+type SortField = "match_score" | "name" | "skill_coverage" | "matched_skills";
+type SortDirection = "asc" | "desc";
+type ScoreFilter = "all" | "strong" | "good" | "partial" | "poor";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const getScoreColors = (score: number) => {
+  if (score >= 80) return { chip: "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300", bar: "bg-emerald-500" };
+  if (score >= 60) return { chip: "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300",   bar: "bg-indigo-500"  };
+  if (score >= 40) return { chip: "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300",     bar: "bg-amber-500"   };
+  return               { chip: "bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300",            bar: "bg-red-500"     };
+};
+
+const getMatchLabel = (score: number) => {
+  if (score >= 80) return "Strong Match";
+  if (score >= 60) return "Good Match";
+  if (score >= 40) return "Partial Match";
+  return "Poor Match";
+};
+
+const getInitials = (name: string) =>
+  name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+
+const getRankBadge = (index: number) => {
+  const medals = ["🥇", "🥈", "🥉"];
+  if (index < 3) return <span className="text-lg">{medals[index]}</span>;
+  return <span className="text-sm font-medium text-gray-400 dark:text-gray-500">#{index + 1}</span>;
+};
+
+// ── Reusable Progress Bar ─────────────────────────────────────────────────────
+
+const ScoreBar: React.FC<{ score: number }> = ({ score }) => (
+  <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+    <div
+      className={`h-full rounded-full transition-all ${getScoreColors(score).bar}`}
+      style={{ width: `${Math.min(score, 100)}%` }}
+    />
+  </div>
+);
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 const ResultsTable: React.FC<ResultsTableProps> = ({ results, onReset }) => {
-  const [sortField, setSortField] = useState<SortField>('match_score');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortField, setSortField]         = useState<SortField>("match_score");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedCandidate, setSelectedCandidate] = useState<RankedCandidate | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [scoreFilter, setScoreFilter] = useState<'all' | 'strong' | 'good' | 'partial' | 'poor'>('all');
+  const [showFilters, setShowFilters]     = useState(false);
+  const [scoreFilter, setScoreFilter]     = useState<ScoreFilter>("all");
 
-  // Sort candidates
+  // ── Sort + filter ──────────────────────────────────────────────────────────
   const sortedCandidates = useMemo(() => {
     let filtered = results.ranked_candidates;
-
-    // Apply score filter
-    if (scoreFilter !== 'all') {
-      filtered = filtered.filter(candidate => {
-        const score = candidate.match_score;
-        switch (scoreFilter) {
-          case 'strong': return score >= 80;
-          case 'good': return score >= 60 && score < 80;
-          case 'partial': return score >= 40 && score < 60;
-          case 'poor': return score < 40;
-          default: return true;
-        }
+    if (scoreFilter !== "all") {
+      filtered = filtered.filter(c => {
+        const s = c.match_score;
+        if (scoreFilter === "strong")  return s >= 80;
+        if (scoreFilter === "good")    return s >= 60 && s < 80;
+        if (scoreFilter === "partial") return s >= 40 && s < 60;
+        if (scoreFilter === "poor")    return s < 40;
+        return true;
       });
     }
-
-    // Sort
     return [...filtered].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
+      let av: string | number, bv: string | number;
       switch (sortField) {
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'match_score':
-          aValue = a.match_score;
-          bValue = b.match_score;
-          break;
-        case 'skill_coverage':
-          aValue = a.skill_coverage;
-          bValue = b.skill_coverage;
-          break;
-        case 'matched_skills':
-          aValue = a.matched_skills;
-          bValue = b.matched_skills;
-          break;
-        default:
-          return 0;
+        case "name":           av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
+        case "match_score":    av = a.match_score;        bv = b.match_score;        break;
+        case "skill_coverage": av = a.skill_coverage ?? 0; bv = b.skill_coverage ?? 0; break;
+        case "matched_skills": av = a.matched_skills ?? 0; bv = b.matched_skills ?? 0; break;
+        default: return 0;
       }
-
-      if (typeof aValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue as string)
-          : (bValue as string).localeCompare(aValue);
-      } else {
-        return sortDirection === 'asc' 
-          ? aValue - (bValue as number)
-          : (bValue as number) - aValue;
+      if (typeof av === "string") {
+        return sortDirection === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       }
+      return sortDirection === "asc" ? av - (bv as number) : (bv as number) - av;
     });
   }, [results.ranked_candidates, sortField, sortDirection, scoreFilter]);
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection(field === 'name' ? 'asc' : 'desc');
-    }
+    if (sortField === field) setSortDirection(d => d === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDirection(field === "name" ? "asc" : "desc"); }
   };
 
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field)
+      return <CaretDown size={12} className="inline ml-1 opacity-30" />;
+    return sortDirection === "asc"
+      ? <CaretUp   size={12} className="inline ml-1 text-indigo-500" weight="bold" />
+      : <CaretDown size={12} className="inline ml-1 text-indigo-500" weight="bold" />;
   };
 
+  // ── CSV Export ─────────────────────────────────────────────────────────────
   const exportResults = () => {
-    const csvContent = [
-      ['Rank', 'Name', 'Email', 'Match Score', 'Skill Coverage', 'Matched Skills', 'Total Required', 'Explanation'],
-      ...sortedCandidates.map((candidate, index) => [
-        index + 1,
-        candidate.name,
-        candidate.email,
-        candidate.match_score.toFixed(1),
-        candidate.skill_coverage.toFixed(1),
-        candidate.matched_skills,
-        candidate.total_required_skills,
-        candidate.explanation.replace(/\*\*(.*?)\*\*/g, '$1') // Remove markdown
-      ])
-    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cv-snap-results-${results.job_id}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    try {
+      const headers = ["Rank","Name","Email","Match Score (%)","Skill Coverage (%)","Matched Skills","Total Required Skills","Match Category","Explanation"];
+      const rows = sortedCandidates.map((c, i) => [
+        (i + 1).toString(), c.name || "Unknown", c.email || "No email",
+        c.match_score.toFixed(1), (c.skill_coverage ?? 0).toFixed(1),
+        (c.matched_skills ?? 0).toString(), (c.total_required_skills ?? 0).toString(),
+        getMatchLabel(c.match_score),
+        (c.explanation || "").replace(/\*\*(.*?)\*\*/g, "$1").replace(/"/g, '""'),
+      ]);
+      const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `cv-snap-${results.job_id}-${new Date().toISOString().slice(0,10)}.csv`;
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) { console.error(e); alert("CSV export failed."); }
   };
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const avgScore = sortedCandidates.length
+    ? Math.round(sortedCandidates.reduce((s, c) => s + c.match_score, 0) / sortedCandidates.length) : 0;
+
+  const stats = [
+    { label: "Resumes Processed", value: results.successfully_processed ?? results.ranked_candidates.length, accent: "text-indigo-600 dark:text-indigo-400",  bg: "bg-indigo-50 dark:bg-indigo-950/40"  },
+    { label: "Required Skills",   value: results.job_info.total_required_skills ?? "N/A",                    accent: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/40" },
+    { label: "Good+ Matches",     value: sortedCandidates.filter(c => c.match_score >= 60).length,           accent: "text-violet-600 dark:text-violet-400",  bg: "bg-violet-50 dark:bg-violet-950/40"  },
+    { label: "Avg Score",         value: `${avgScore}%`,                                                      accent: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-950/40"   },
+  ];
+
+  const filterOptions: { key: ScoreFilter; label: string }[] = [
+    { key: "all",     label: `All Candidates (${results.ranked_candidates.length})` },
+    { key: "strong",  label: "Strong Match (80%+)"   },
+    { key: "good",    label: "Good Match (60–79%)"   },
+    { key: "partial", label: "Partial Match (40–59%)" },
+    { key: "poor",    label: "Poor Match (<40%)"      },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+    <div className="space-y-5">
+
+      {/* ── Header Card ── */}
+      <div className="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl shadow-sm p-6 backdrop-blur-sm">
+        <div className="flex items-start justify-between flex-wrap gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 flex items-center">
-              <TrendingUp className="w-6 h-6 mr-2 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <TrendUp size={22} weight="bold" className="text-indigo-500 dark:text-indigo-400" />
               Analysis Results
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Ranked candidates for: <span className="font-medium">{results.job_info.title}</span>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Ranked candidates for:{" "}
+              <span className="font-medium text-gray-700 dark:text-gray-300">{results.job_info.title}</span>
             </p>
           </div>
-          
-          <div className="flex space-x-3">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={exportResults}
-              className="flex items-center px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
+              <DownloadSimple size={16} weight="bold" /> Export CSV
             </button>
             <button
               onClick={onReset}
-              className="flex items-center px-4 py-2 text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
             >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              New Analysis
+              <ArrowCounterClockwise size={16} weight="bold" /> New Analysis
             </button>
           </div>
         </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-blue-600">{results.successfully_processed}</div>
-            <div className="text-sm text-blue-800">Resumes Processed</div>
-          </div>
-          <div className="bg-green-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-green-600">{results.job_info.total_required_skills}</div>
-            <div className="text-sm text-green-800">Required Skills</div>
-          </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-purple-600">
-              {sortedCandidates.filter(c => c.match_score >= 60).length}
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {stats.map(s => (
+            <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center border border-transparent dark:border-gray-800/40`}>
+              <div className={`text-2xl font-bold ${s.accent}`}>{s.value}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{s.label}</div>
             </div>
-            <div className="text-sm text-purple-800">Good+ Matches</div>
-          </div>
-          <div className="bg-orange-50 rounded-lg p-4">
-            <div className="text-2xl font-bold text-orange-600">
-              {Math.round(sortedCandidates.reduce((sum, c) => sum + c.match_score, 0) / sortedCandidates.length) || 0}%
-            </div>
-            <div className="text-sm text-orange-800">Avg Score</div>
-          </div>
+          ))}
         </div>
 
-        {/* Processing Errors */}
-        {results.processing_errors.length > 0 && (
-          <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-medium text-yellow-800">Processing Warnings</h4>
-                <div className="mt-2 text-sm text-yellow-700">
-                  {results.processing_errors.length} file(s) couldn't be processed:
-                  <ul className="mt-1 space-y-1">
-                    {results.processing_errors.map((error, index) => (
-                      <li key={index} className="flex items-center">
-                        <span className="w-1 h-1 bg-yellow-600 rounded-full mr-2"></span>
-                        <span className="font-medium">{error.filename}:</span>
-                        <span className="ml-1">{error.error}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+        {/* Processing errors */}
+        {results.processing_errors && results.processing_errors.length > 0 && (
+          <div className="mt-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 flex items-start gap-2">
+            <Warning size={18} weight="fill" className="text-amber-500 mt-0.5 shrink-0" />
+            <div className="text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-medium">{results.processing_errors.length} file(s) couldn't be processed:</span>
+              <ul className="mt-1 space-y-0.5">
+                {results.processing_errors.map((e, i) => (
+                  <li key={i}><span className="font-medium">{e.filename}:</span> {e.error}</li>
+                ))}
+              </ul>
             </div>
           </div>
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      {/* ── Filters ── */}
+      <div className="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl shadow-sm overflow-hidden backdrop-blur-sm">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+          className="w-full px-6 py-4 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
         >
-          <span className="font-medium text-gray-900">Filters & Sorting</span>
-          {showFilters ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          <span className="flex items-center gap-2">
+            <SlidersHorizontal size={16} weight="bold" className="text-gray-400" />
+            Filters &amp; Sorting
+          </span>
+          {showFilters
+            ? <CaretUp   size={16} className="text-gray-400" />
+            : <CaretDown size={16} className="text-gray-400" />}
         </button>
-        
         {showFilters && (
-          <div className="px-6 pb-4 border-t border-gray-100">
-            <div className="flex flex-wrap items-center gap-4 pt-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Score</label>
-                <select
-                  value={scoreFilter}
-                  onChange={(e) => setScoreFilter(e.target.value as any)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Candidates ({results.ranked_candidates.length})</option>
-                  <option value="strong">Strong Match (80%+)</option>
-                  <option value="good">Good Match (60-79%)</option>
-                  <option value="partial">Partial Match (40-59%)</option>
-                  <option value="poor">Poor Match (&lt;40%)</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
-                <select
-                  value={sortField}
-                  onChange={(e) => handleSort(e.target.value as SortField)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="match_score">Match Score</option>
-                  <option value="skill_coverage">Skill Coverage</option>
-                  <option value="matched_skills">Matched Skills</option>
-                  <option value="name">Name</option>
-                </select>
-              </div>
-
-              <div className="text-sm text-gray-600">
-                Showing {sortedCandidates.length} of {results.ranked_candidates.length} candidates
-              </div>
+          <div className="px-6 pb-5 border-t border-gray-100 dark:border-gray-800 pt-4 flex flex-wrap items-end gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Filter by Score</label>
+              <select
+                value={scoreFilter}
+                onChange={e => setScoreFilter(e.target.value as ScoreFilter)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-800"
+              >
+                {filterOptions.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Results Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rank
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Candidate</span>
-                    {getSortIcon('name')}
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('match_score')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Match Score</span>
-                    {getSortIcon('match_score')}
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('skill_coverage')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Coverage</span>
-                    {getSortIcon('skill_coverage')}
-                  </div>
-                </th>
-                <th 
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSort('matched_skills')}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Skills</span>
-                    {getSortIcon('matched_skills')}
-                  </div>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Explanation
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedCandidates.map((candidate, index) => (
-                <tr key={candidate.candidate_id} className="hover:bg-gray-50">
-                  {/* Rank */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      {index < 3 ? (
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                          index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-600'
-                        }`}>
-                          {index + 1}
-                        </div>
-                      ) : (
-                        <span className="text-gray-500">#{index + 1}</span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Candidate Info */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
-                        <User className="w-4 h-4 text-gray-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{candidate.name}</div>
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <Mail className="w-3 h-3 mr-1" />
-                          {candidate.email}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Match Score */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-900">
-                            {candidate.match_score.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className={`h-2 rounded-full ${
-                              candidate.match_score >= 80 ? 'bg-green-500' :
-                              candidate.match_score >= 60 ? 'bg-blue-500' :
-                              candidate.match_score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                            style={{ width: `${Math.min(candidate.match_score, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getMatchScoreBadgeColor(candidate.match_score)}`}>
-                        {getMatchLabel(candidate.match_score)}
-                      </span>
-                    </div>
-                  </td>
-
-                  {/* Skill Coverage */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      <Target className="w-4 h-4 text-gray-400 mr-1" />
-                      {candidate.skill_coverage.toFixed(1)}%
-                    </div>
-                  </td>
-
-                  {/* Skills Match */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      <Award className="w-4 h-4 text-gray-400 mr-1" />
-                      <span className="font-medium">{candidate.matched_skills}</span>
-                      <span className="text-gray-500">/{candidate.total_required_skills}</span>
-                    </div>
-                  </td>
-
-                  {/* Explanation */}
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900 max-w-md">
-                      <div className="line-clamp-2">
-                        {candidate.explanation.replace(/\*\*(.*?)\*\*/g, '$1')}
-                      </div>
-                    </div>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      onClick={() => setSelectedCandidate(candidate)}
-                      className="text-blue-600 hover:text-blue-700 flex items-center"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Empty State */}
-        {sortedCandidates.length === 0 && (
-          <div className="text-center py-12">
-            <TrendingDown className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No candidates found</h3>
-            <p className="text-gray-500">
-              {scoreFilter !== 'all' 
-                ? 'Try adjusting your filters to see more results.'
-                : 'No candidates were successfully processed.'
-              }
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sort By</label>
+              <select
+                value={sortField}
+                onChange={e => handleSort(e.target.value as SortField)}
+                className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 dark:focus:ring-indigo-800"
+              >
+                <option value="match_score">Match Score</option>
+                <option value="skill_coverage">Skill Coverage</option>
+                <option value="matched_skills">Matched Skills</option>
+                <option value="name">Name (A–Z)</option>
+              </select>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 pb-1">
+              Showing <span className="font-medium text-gray-700 dark:text-gray-300">{sortedCandidates.length}</span> of {results.ranked_candidates.length} candidates
             </p>
           </div>
         )}
       </div>
 
-      {/* Candidate Detail Modal */}
+      {/* ── Table ── */}
+      <div className="bg-white dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80 rounded-2xl shadow-sm overflow-hidden backdrop-blur-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="bg-gray-50/80 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
+                {[
+                  { label: "Rank",        field: null             },
+                  { label: "Candidate",   field: "name"           },
+                  { label: "Match Score", field: "match_score"    },
+                  { label: "Coverage",    field: "skill_coverage" },
+                  { label: "Skills",      field: "matched_skills" },
+                  { label: "Explanation", field: null             },
+                  { label: "Actions",     field: null             },
+                ].map(col => (
+                  <th
+                    key={col.label}
+                    onClick={() => col.field && handleSort(col.field as SortField)}
+                    className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider
+                      ${col.field ? "cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none" : ""}`}
+                  >
+                    {col.label}
+                    {col.field && <SortIcon field={col.field as SortField} />}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60">
+              {sortedCandidates.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center">
+                    <TrendDown size={40} className="text-gray-200 dark:text-gray-700 mx-auto mb-3" />
+                    <p className="text-sm text-gray-400 dark:text-gray-500">
+                      {scoreFilter !== "all" ? "No candidates match this filter." : "No candidates were processed."}
+                    </p>
+                  </td>
+                </tr>
+              ) : sortedCandidates.map((c, index) => {
+                const colors = getScoreColors(c.match_score);
+                return (
+                  <tr key={c.candidate_id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                    {/* Rank */}
+                    <td className="px-4 py-4 text-center w-12">{getRankBadge(index)}</td>
+
+                    {/* Candidate */}
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-xs font-bold shrink-0">
+                          {getInitials(c.name)}
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-black dark:text-black">{c.name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Score */}
+                    <td className="px-4 py-4">
+                      <div className="flex flex-col gap-1.5 min-w-[150px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold text-gray-800 dark:text-gray-200">{c.match_score.toFixed(1)}%</span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${colors.chip}`}>
+                            {getMatchLabel(c.match_score)}
+                          </span>
+                        </div>
+                        <ScoreBar score={c.match_score} />
+                      </div>
+                    </td>
+
+                    {/* Coverage */}
+                    <td className="px-4 py-4">
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{(c.skill_coverage ?? 0).toFixed(1)}%</span>
+                    </td>
+
+                    {/* Skills */}
+                    <td className="px-4 py-4">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{c.matched_skills ?? 0}</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500">/{c.total_required_skills ?? 0}</span>
+                    </td>
+
+                    {/* Explanation */}
+                    <td className="px-4 py-4 max-w-[240px]">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                        {c.explanation.replace(/\*\*(.*?)\*\*/g, "$1")}
+                      </p>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() => setSelectedCandidate(c)}
+                        className="flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors"
+                      >
+                        <Eye size={14} weight="bold" /> View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Candidate Detail Modal ── */}
       {selectedCandidate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">{selectedCandidate.name}</h3>
-                  <p className="text-gray-600">{selectedCandidate.email}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedCandidate(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedCandidate(null)} />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-100 dark:border-gray-800">
+            {/* Header */}
+            <div className="flex items-start justify-between p-6 border-b border-gray-100 dark:border-gray-800">
+              <div>
+                <h3 className="text-lg font-bold text-black dark:text-black">{selectedCandidate.name}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{selectedCandidate.email}</p>
               </div>
+              <button
+                onClick={() => setSelectedCandidate(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X size={20} weight="bold" />
+              </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Match Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {selectedCandidate.match_score.toFixed(1)}%
+            {/* Body */}
+            <div className="p-6 space-y-5">
+              {/* Score cards */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Overall Match",  value: `${selectedCandidate.match_score.toFixed(1)}%`, color: "text-indigo-600 dark:text-indigo-400",  bg: "bg-indigo-50 dark:bg-indigo-950/40"  },
+                  { label: "Skill Coverage", value: `${(selectedCandidate.skill_coverage ?? 0).toFixed(1)}%`, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/40" },
+                  { label: "Skills Matched", value: `${selectedCandidate.matched_skills ?? 0}/${selectedCandidate.total_required_skills ?? 0}`, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-950/40" },
+                ].map(s => (
+                  <div key={s.label} className={`${s.bg} rounded-xl p-4 text-center border border-transparent dark:border-gray-800/40`}>
+                    <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{s.label}</div>
                   </div>
-                  <div className="text-sm text-blue-800">Overall Match</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {selectedCandidate.skill_coverage.toFixed(1)}%
-                  </div>
-                  <div className="text-sm text-green-800">Skill Coverage</div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {selectedCandidate.matched_skills}/{selectedCandidate.total_required_skills}
-                  </div>
-                  <div className="text-sm text-purple-800">Skills Matched</div>
-                </div>
+                ))}
               </div>
 
-              {/* Match Badge */}
-              <div className="text-center">
-                <span className={`inline-flex px-4 py-2 text-lg font-medium rounded-full ${getMatchScoreBadgeColor(selectedCandidate.match_score)}`}>
+              {/* Badge */}
+              <div className="flex justify-center">
+                <span className={`text-sm font-semibold px-4 py-1.5 rounded-full ${getScoreColors(selectedCandidate.match_score).chip}`}>
                   {getMatchLabel(selectedCandidate.match_score)}
                 </span>
               </div>
 
-              {/* Detailed Explanation */}
+              {/* Explanation */}
               <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-3">Match Analysis</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div 
-                    className="text-gray-800 leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: selectedCandidate.explanation
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900">$1</strong>')
-                        .replace(/\n/g, '<br>')
-                    }}
-                  />
-                </div>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Match Analysis</h4>
+                <div
+                  className="bg-gray-50 dark:bg-gray-950/60 border border-gray-100 dark:border-gray-800/80 rounded-xl p-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: selectedCandidate.explanation
+                      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-white">$1</strong>')
+                      .replace(/\n/g, "<br>"),
+                  }}
+                />
               </div>
 
               {/* Recommendation */}
-              <div className="border-t pt-4">
-                <div className={`rounded-lg p-4 ${
-                  selectedCandidate.match_score >= 80 ? 'bg-green-50 border border-green-200' :
-                  selectedCandidate.match_score >= 60 ? 'bg-blue-50 border border-blue-200' :
-                  selectedCandidate.match_score >= 40 ? 'bg-yellow-50 border border-yellow-200' :
-                  'bg-red-50 border border-red-200'
-                }`}>
-                  <h5 className={`font-semibold mb-2 ${
-                    selectedCandidate.match_score >= 80 ? 'text-green-800' :
-                    selectedCandidate.match_score >= 60 ? 'text-blue-800' :
-                    selectedCandidate.match_score >= 40 ? 'text-yellow-800' :
-                    'text-red-800'
-                  }`}>
-                    Recommendation:
-                  </h5>
-                  <p className={`text-sm ${
-                    selectedCandidate.match_score >= 80 ? 'text-green-700' :
-                    selectedCandidate.match_score >= 60 ? 'text-blue-700' :
-                    selectedCandidate.match_score >= 40 ? 'text-yellow-700' :
-                    'text-red-700'
-                  }`}>
-                    {selectedCandidate.match_score >= 80 
-                      ? 'Highly recommended for interview. Strong alignment with job requirements.'
-                      : selectedCandidate.match_score >= 60 
-                      ? 'Recommended for interview. Good potential with some training or development areas.'
-                      : selectedCandidate.match_score >= 40
-                      ? 'Consider for interview if other candidates are limited. May require significant training.'
-                      : 'Not recommended unless role requirements change or candidate gains additional experience.'
-                    }
-                  </p>
-                </div>
-              </div>
+              {(() => {
+                const s = selectedCandidate.match_score;
+                const cfg = s >= 80
+                  ? { bg: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50", title: "text-emerald-800 dark:text-emerald-300", body: "text-emerald-700 dark:text-emerald-400", text: "Highly recommended for interview. Strong alignment with job requirements." }
+                  : s >= 60
+                  ? { bg: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/50",   title: "text-indigo-800 dark:text-indigo-300",  body: "text-indigo-700 dark:text-indigo-400",  text: "Recommended for interview. Good potential with some development areas." }
+                  : s >= 40
+                  ? { bg: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/50",     title: "text-amber-800 dark:text-amber-300",   body: "text-amber-700 dark:text-amber-400",   text: "Consider if candidates are limited. May require significant training." }
+                  : { bg: "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/50",         title: "text-red-800 dark:text-red-300",     body: "text-red-700 dark:text-red-400",     text: "Not recommended unless role requirements change significantly." };
+                return (
+                  <div className={`rounded-xl border p-4 ${cfg.bg}`}>
+                    <h5 className={`text-sm font-semibold mb-1 ${cfg.title}`}>Recommendation</h5>
+                    <p className={`text-sm ${cfg.body}`}>{cfg.text}</p>
+                  </div>
+                );
+              })()}
             </div>
 
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+            {/* Footer */}
+            <div className="flex justify-end gap-2 p-6 border-t border-gray-100 dark:border-gray-800">
               <button
                 onClick={() => setSelectedCandidate(null)}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Close
               </button>
               <button
-                onClick={() => {
-                  // In a real app, this would navigate to candidate profile or contact form
-                  window.open(`mailto:${selectedCandidate.email}?subject=Interview Opportunity - ${results.job_info.title}`);
-                }}
-                className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                onClick={() => window.open(`mailto:${selectedCandidate.email}?subject=Interview Opportunity - ${results.job_info.title}`)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
               >
                 Contact Candidate
               </button>

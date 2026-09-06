@@ -270,7 +270,7 @@ class GeminiService:
         
             # Fix name extraction - try harder to get actual names
         if not candidate_data.get('name') or candidate_data.get('name') in ['Unknown Candidate', 'Unknown', '']:
-            # Try to extract from resume text first
+            # Try to extract from resume text firs
             resume_text = candidate_data.get('resume_text', '')
             if resume_text:
                 # Look for name patterns in first few lines

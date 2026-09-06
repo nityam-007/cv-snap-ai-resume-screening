@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FileText, Sparkles, Copy, Check } from 'lucide-react';
+import { FileText, Sparkle, Check } from '@phosphor-icons/react';
 
 interface JobDescriptionInputProps {
   value: string;
@@ -7,27 +7,9 @@ interface JobDescriptionInputProps {
   disabled?: boolean;
 }
 
-const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({ 
-  value, 
-  onChange, 
-  disabled = false 
-}) => {
-  const [copied, setCopied] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
+const SAMPLE_TEMPLATE = `Senior Software Engineer - Remote
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
-    
-    // Calculate word count
-    const words = newValue.trim().split(/\s+/).filter(word => word.length > 0);
-    setWordCount(words.length);
-  }, [onChange]);
-
-  const handleCopyTemplate = () => {
-    const template = `Senior Software Engineer - Remote
-
-We are seeking an experienced Senior Software Engineer to join our dynamic engineering team. The ideal candidate will have 5+ years of experience building scalable web applications and a passion for clean, maintainable code.
+We are seeking an experienced Senior Software Engineer to join our engineering team. The ideal candidate will have 5+ years of experience building scalable web applications.
 
 **Required Skills:**
 • 5+ years of professional software development experience
@@ -44,171 +26,127 @@ We are seeking an experienced Senior Software Engineer to join our dynamic engin
 • Containerization (Docker, Kubernetes)
 • CI/CD pipeline experience
 • Test-driven development
-• Machine Learning or Data Science background
 
 **Responsibilities:**
 • Design and develop robust, scalable software solutions
-• Collaborate with cross-functional teams to define and implement new features
+• Collaborate with cross-functional teams
 • Code reviews and mentor junior developers
-• Optimize application performance and troubleshoot issues
-• Participate in architectural decisions and technical planning
+• Optimize application performance
 
 **Requirements:**
 • Bachelor's degree in Computer Science or related field
 • 5+ years of professional development experience
-• Strong problem-solving and analytical thinking skills
-• Excellent communication and teamwork abilities
-• Self-motivated with ability to work independently
+• Strong problem-solving and communication skills`;
 
-**What We Offer:**
-• Competitive salary and equity package
-• Flexible remote work arrangements
-• Professional development budget
-• Health, dental, and vision insurance
-• 401k with company matching`;
+const MIN_CHARS = 100;
+const MAX_CHARS = 10000;
 
-    navigator.clipboard.writeText(template).then(() => {
-      onChange(template);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
+  value,
+  onChange,
+  disabled = false,
+}) => {
+  const [copied, setCopied] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const v = e.target.value;
+      onChange(v);
+      setWordCount(v.trim().split(/\s+/).filter(w => w.length > 0).length);
+    },
+    [onChange]
+  );
+
+  const loadTemplate = () => {
+    onChange(SAMPLE_TEMPLATE);
+    setWordCount(SAMPLE_TEMPLATE.trim().split(/\s+/).filter(w => w.length > 0).length);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  // Calculate character count for validation
   const charCount = value.length;
-  const minChars = 100;
-  const maxChars = 10000;
-  const isValidLength = charCount >= minChars && charCount <= maxChars;
+  const isValid   = charCount >= MIN_CHARS && charCount <= MAX_CHARS;
+  const isInvalid = charCount > 0 && !isValid;
 
   return (
-    <div className="space-y-4">
-      {/* Header with template button */}
+    <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <label htmlFor="job-description" className="block text-sm font-medium text-gray-700 mb-1">
-            Job Description *
-          </label>
-          <p className="text-xs text-gray-500">
-            Provide a detailed job description including required skills, experience level, and responsibilities
-          </p>
-        </div>
-        
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Include skills, experience level, and responsibilities.
+        </p>
         <button
           type="button"
-          onClick={handleCopyTemplate}
+          onClick={loadTemplate}
           disabled={disabled}
-          className="flex items-center space-x-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Use sample job description"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors disabled:opacity-50"
         >
-          {copied ? (
-            <>
-              <Check className="w-4 h-4" />
-              <span>Copied!</span>
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4" />
-              <span>Use Template</span>
-            </>
-          )}
+          {copied
+            ? <Check size={14} weight="bold" />
+            : <Sparkle size={14} weight="duotone" />}
+          {copied ? 'Loaded!' : 'Use Template'}
         </button>
       </div>
 
-      {/* Text Area */}
+      {/* Textarea */}
       <div className="relative">
         <textarea
-          id="job-description"
           value={value}
-          onChange={handleInputChange}
+          onChange={handleChange}
           disabled={disabled}
-          placeholder="Enter job description here...
-
-Example:
-Senior Python Developer - Remote
-
-We are looking for an experienced Python developer with 5+ years of experience.
-
-Required Skills:
-• Python (5+ years)
-• Django or Flask
-• PostgreSQL
-• AWS
-• Docker
-
-Responsibilities:
-• Build scalable web applications
-• Design APIs
-• Mentor junior developers..."
-          className={`
-            w-full min-h-[300px] px-4 py-3 border rounded-lg resize-y
-            focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-            disabled:bg-gray-50 disabled:cursor-not-allowed
-            transition-colors duration-200
-            ${!isValidLength && charCount > 0 
-              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-              : 'border-gray-300'
-            }
-          `}
-          style={{ maxHeight: '500px' }}
+          rows={12}
+          placeholder={`Enter job description here…\n\nExample:\nSenior Python Developer - Remote\n\nRequired Skills:\n• Python (5+ years)\n• Django or Flask\n• PostgreSQL\n• AWS\n• Docker`}
+          className={[
+            'w-full px-4 py-3 rounded-xl border text-sm leading-relaxed',
+            'text-black dark:text-black placeholder:text-gray-400 dark:placeholder:text-gray-500',
+            'bg-white dark:bg-gray-950/60 resize-y focus:outline-none transition-all',
+            'disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:cursor-not-allowed',
+            isInvalid
+              ? 'border-red-300 dark:border-red-800 focus:border-red-400 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-950'
+              : 'border-gray-200 dark:border-gray-800 focus:border-indigo-400 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-950/40',
+          ].join(' ')}
+          style={{ minHeight: '260px', maxHeight: '480px' }}
         />
-        
-        {/* Character/Word count */}
-        <div className="absolute bottom-3 right-3 text-xs text-gray-500 bg-white px-2 py-1 rounded border">
-          <div className="flex items-center space-x-2">
-            <span>{wordCount} words</span>
-            <span>•</span>
-            <span className={charCount < minChars ? 'text-red-500' : charCount > maxChars ? 'text-red-500' : ''}>
-              {charCount}/{maxChars} chars
-            </span>
-          </div>
+        {/* Counter badge */}
+        <div className="absolute bottom-3 right-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-lg px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1.5 shadow-sm pointer-events-none">
+          <span className={charCount > 0 && (charCount < MIN_CHARS || charCount > MAX_CHARS) ? 'text-red-500 dark:text-red-400' : ''}>
+            {charCount}/{MAX_CHARS}
+          </span>
+          <span className="text-gray-200 dark:text-gray-700">·</span>
+          <span>{wordCount}w</span>
         </div>
       </div>
 
-      {/* Validation Messages */}
-      {charCount > 0 && !isValidLength && (
-        <div className="text-sm">
-          {charCount < minChars ? (
-            <p className="text-red-600">
-              Job description too short. Please add at least {minChars - charCount} more characters.
-            </p>
-          ) : (
-            <p className="text-red-600">
-              Job description too long. Please remove {charCount - maxChars} characters.
-            </p>
-          )}
-        </div>
+      {/* Validation */}
+      {isInvalid && (
+        <p className="text-xs text-red-600 dark:text-red-400">
+          {charCount < MIN_CHARS
+            ? `Add at least ${MIN_CHARS - charCount} more characters`
+            : `Remove ${charCount - MAX_CHARS} characters`}
+        </p>
       )}
 
       {/* Guidelines */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <FileText className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium mb-2">For best results, include:</p>
-            <ul className="space-y-1">
-              <li>• <strong>Job title</strong> and level (Junior, Mid, Senior, Lead)</li>
-              <li>• <strong>Required skills</strong> with experience levels</li>
-              <li>• <strong>Preferred skills</strong> or nice-to-have technologies</li>
-              <li>• <strong>Key responsibilities</strong> and day-to-day tasks</li>
-              <li>• <strong>Experience requirements</strong> (years, specific domains)</li>
-              <li>• <strong>Education</strong> or certification requirements</li>
-            </ul>
-            <p className="mt-2 text-xs text-blue-600">
-              💡 The more detailed your job description, the more accurate the matching will be!
-            </p>
-          </div>
+      <div className="bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3 flex items-start gap-2">
+        <FileText size={16} weight="duotone" className="text-indigo-500 dark:text-indigo-400 mt-0.5 shrink-0" />
+        <div className="text-xs text-indigo-900 dark:text-indigo-300">
+          <p className="font-semibold mb-1">For best results, include:</p>
+          <ul className="space-y-0.5 text-indigo-700 dark:text-indigo-400/90">
+            <li>• <strong>Job title</strong> and level (Junior, Senior, Lead)</li>
+            <li>• <strong>Required skills</strong> with experience levels</li>
+            <li>• <strong>Preferred skills</strong> / nice-to-haves</li>
+            <li>• <strong>Key responsibilities</strong></li>
+            <li>• <strong>Education</strong> or certification requirements</li>
+          </ul>
         </div>
       </div>
 
-      {/* AI Enhancement Notice */}
-      {value.trim() && isValidLength && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="flex items-center text-sm text-green-800">
-            <Sparkles className="w-4 h-4 mr-2" />
-            <span>
-              Great! Our AI will extract skills, requirements, and preferences from your job description automatically.
-            </span>
-          </div>
+      {/* Ready indicator */}
+      {value.trim() && isValid && (
+        <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 rounded-xl px-3 py-2">
+          <Sparkle size={14} weight="fill" className="text-emerald-500" />
+          AI will automatically extract skills and requirements from your description.
         </div>
       )}
     </div>

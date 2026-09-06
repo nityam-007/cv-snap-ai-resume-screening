@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, FileText, AlertCircle } from 'lucide-react';
+import { UploadSimple, X, FileText, WarningCircle } from '@phosphor-icons/react';
 import { formatFileSize, getFileIcon } from '../services/api';
 
 interface FileUploadZoneProps {
@@ -9,216 +9,156 @@ interface FileUploadZoneProps {
   disabled?: boolean;
 }
 
-const FileUploadZone: React.FC<FileUploadZoneProps> = ({ 
-  files, 
-  onFilesChange, 
-  disabled = false 
+const FileUploadZone: React.FC<FileUploadZoneProps> = ({
+  files,
+  onFilesChange,
+  disabled = false,
 }) => {
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    const errors: string[] = [];
-
-    // Handle rejected files
-    rejectedFiles.forEach(({ file, errors: fileErrors }) => {
-      fileErrors.forEach((error: any) => {
-        if (error.code === 'file-too-large') {
-          errors.push(`${file.name}: File is too large (max 10MB)`);
-        } else if (error.code === 'file-invalid-type') {
-          errors.push(`${file.name}: Invalid file type (only PDF and DOCX allowed)`);
-        } else {
-          errors.push(`${file.name}: ${error.message}`);
-        }
+  const onDrop = useCallback(
+    (acceptedFiles: File[], rejectedFiles: any[]) => {
+      const errors: string[] = [];
+      rejectedFiles.forEach(({ file, errors: fileErrors }) => {
+        fileErrors.forEach((error: any) => {
+          if (error.code === 'file-too-large')         errors.push(`${file.name}: File too large (max 10MB)`);
+          else if (error.code === 'file-invalid-type') errors.push(`${file.name}: Only PDF and DOCX accepted`);
+          else                                          errors.push(`${file.name}: ${error.message}`);
+        });
       });
-    });
-
-    // Check for duplicate files
-    const existingFileNames = new Set(files.map(f => f.name));
-    const newFiles = acceptedFiles.filter(file => {
-      if (existingFileNames.has(file.name)) {
-        errors.push(`${file.name}: File already uploaded`);
-        return false;
-      }
-      return true;
-    });
-
-    // Check total file count
-    if (files.length + newFiles.length > 50) {
-      errors.push('Maximum 50 files allowed');
+      const existingNames = new Set(files.map(f => f.name));
+      const newFiles = acceptedFiles.filter(file => {
+        if (existingNames.has(file.name)) { errors.push(`${file.name}: Already uploaded`); return false; }
+        return true;
+      });
+      if (files.length + newFiles.length > 50) { errors.push('Maximum 50 files allowed'); setUploadErrors(errors); return; }
       setUploadErrors(errors);
-      return;
-    }
-
-    setUploadErrors(errors);
-    
-    if (newFiles.length > 0) {
-      onFilesChange([...files, ...newFiles]);
-    }
-  }, [files, onFilesChange]);
+      if (newFiles.length > 0) onFilesChange([...files, ...newFiles]);
+    },
+    [files, onFilesChange]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/pdf': ['.pdf'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
     },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 10 * 1024 * 1024,
     disabled,
-    multiple: true
+    multiple: true,
   });
 
-  const removeFile = (indexToRemove: number) => {
-    const newFiles = files.filter((_, index) => index !== indexToRemove);
-    onFilesChange(newFiles);
-    
-    // Clear errors when files are removed
-    if (uploadErrors.length > 0) {
-      setUploadErrors([]);
-    }
-  };
-
-  const clearAllFiles = () => {
-    onFilesChange([]);
-    setUploadErrors([]);
+  const removeFile = (index: number) => {
+    onFilesChange(files.filter((_, i) => i !== index));
+    if (uploadErrors.length > 0) setUploadErrors([]);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Drop Zone */}
       <div
         {...getRootProps()}
-        className={`
-          relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-          transition-all duration-200 ease-in-out
-          ${isDragActive 
-            ? 'border-blue-400 bg-blue-50 scale-102' 
-            : 'border-gray-300 hover:border-gray-400'
-          }
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}
-        `}
+        className={[
+          'relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer',
+          'transition-all duration-200 select-none',
+          isDragActive
+            ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/30'
+            : 'border-gray-200 dark:border-gray-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-gray-50 dark:hover:bg-gray-900/40',
+          disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '',
+        ].join(' ')}
       >
         <input {...getInputProps()} />
-        
-        <div className="flex flex-col items-center space-y-3">
-          <div className={`
-            w-12 h-12 rounded-full flex items-center justify-center
-            ${isDragActive ? 'bg-blue-100' : 'bg-gray-100'}
-          `}>
-            <Upload className={`w-6 h-6 ${isDragActive ? 'text-blue-600' : 'text-gray-600'}`} />
+        <div className="flex flex-col items-center gap-3">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isDragActive ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'bg-gray-100 dark:bg-gray-800'}`}>
+            <UploadSimple
+              size={22}
+              weight="bold"
+              className={isDragActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'}
+            />
           </div>
-          
           <div>
-            <p className="text-lg font-medium text-gray-900">
-              {isDragActive ? 'Drop files here' : 'Upload Resume Files'}
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-200">
+              {isDragActive ? 'Drop files here' : 'Drag & drop resume files'}
             </p>
-            <p className="text-sm text-gray-600 mt-1">
-              Drag and drop files here, or click to select files
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              or <span className="text-indigo-600 dark:text-indigo-400 font-medium">browse to upload</span>
             </p>
-            <p className="text-xs text-gray-500 mt-2">
-              Supports PDF and DOCX files up to 10MB each (Max 50 files)
-            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">PDF &amp; DOCX · up to 10MB · max 50 files</p>
           </div>
         </div>
-
-        {/* Loading overlay */}
         {disabled && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 rounded-lg flex items-center justify-center">
-            <div className="text-gray-500">Processing...</div>
+          <div className="absolute inset-0 bg-white/70 dark:bg-gray-950/70 rounded-xl flex items-center justify-center">
+            <span className="text-sm text-gray-400 dark:text-gray-500">Processing…</span>
           </div>
         )}
       </div>
 
-      {/* Upload Errors */}
+      {/* Errors */}
       {uploadErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-red-800">Upload Errors:</h4>
-              <ul className="mt-2 text-sm text-red-700 space-y-1">
-                {uploadErrors.map((error, index) => (
-                  <li key={index}>• {error}</li>
-                ))}
-              </ul>
-            </div>
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl p-3 flex items-start gap-2">
+          <WarningCircle size={16} weight="fill" className="text-red-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Upload errors:</p>
+            <ul className="text-xs text-red-700 dark:text-red-400 space-y-0.5">{uploadErrors.map((e, i) => <li key={i}>• {e}</li>)}</ul>
           </div>
         </div>
       )}
 
-      {/* Uploaded Files */}
+      {/* File list */}
       {files.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-900 flex items-center">
-              <FileText className="w-4 h-4 mr-2" />
-              Uploaded Files ({files.length})
-            </h4>
+        <div className="bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              <FileText size={14} weight="bold" className="text-indigo-500 dark:text-indigo-400" />
+              {files.length} file{files.length !== 1 ? 's' : ''} selected
+            </span>
             <button
-              onClick={clearAllFiles}
+              onClick={() => { onFilesChange([]); setUploadErrors([]); }}
               disabled={disabled}
-              className="text-sm text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50"
             >
-              Clear All
+              Clear all
             </button>
           </div>
-          
-          <div className="grid gap-2 max-h-48 overflow-y-auto">
+          <div className="space-y-1.5 max-h-44 overflow-y-auto">
             {files.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200"
-              >
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <span className="text-lg flex-shrink-0">
-                    {getFileIcon(file.name)}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatFileSize(file.size)}
-                    </p>
+              <div key={`${file.name}-${index}`} className="flex items-center justify-between bg-white dark:bg-gray-950 px-3 py-2 rounded-lg border border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base shrink-0">{getFileIcon(file.name)}</span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate">{file.name}</p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
-                
                 <button
                   onClick={() => removeFile(index)}
                   disabled={disabled}
-                  className="ml-2 p-1 text-gray-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  title="Remove file"
+                  className="ml-2 p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50 shrink-0"
                 >
-                  <X className="w-4 h-4" />
+                  <X size={14} weight="bold" />
                 </button>
               </div>
             ))}
           </div>
-
-          {/* File Count Summary */}
-          <div className="mt-3 text-xs text-gray-600 flex items-center justify-between">
-            <span>
-              Total: {files.length} files ({formatFileSize(files.reduce((sum, file) => sum + file.size, 0))})
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">
+              Total: {formatFileSize(files.reduce((s, f) => s + f.size, 0))}
             </span>
             {files.length >= 50 && (
-              <span className="text-amber-600 font-medium">
-                Maximum file limit reached
-              </span>
+              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">Max limit reached</span>
             )}
           </div>
         </div>
       )}
 
-      {/* File Guidelines */}
+      {/* Guidelines */}
       {files.length === 0 && (
-        <div className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
-          <p className="font-medium mb-1">Guidelines:</p>
-          <ul className="space-y-1">
-            <li>• Only PDF and DOCX files are accepted</li>
-            <li>• Maximum file size: 10MB per file</li>
-            <li>• Maximum total files: 50</li>
-            <li>• Ensure resumes contain text (scanned images may not work well)</li>
-            <li>• Best results with standard resume formats</li>
-          </ul>
+        <div className="text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800/60 rounded-xl p-3 space-y-0.5">
+          <p className="font-medium text-gray-500 dark:text-gray-400 mb-1">Accepted formats:</p>
+          <p>• PDF and DOCX only · max 10MB per file</p>
+          <p>• Up to 50 resumes per batch</p>
+          <p>• Text-based files work best (not scanned images)</p>
         </div>
       )}
     </div>

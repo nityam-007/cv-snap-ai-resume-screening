@@ -1,6 +1,6 @@
 #type: ignore
 """
-CV Snap - Main FastAPI Application
+CV Snap - Main FastAPI Application`
 AI-Powered Resume Screening and Ranking System
 """
 
@@ -42,7 +42,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # Initialize services
 document_parser = DocumentParser()
 gemini_service = GeminiService()

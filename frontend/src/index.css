@@ -1,13 +1,100 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* ── Custom Theme Tokens ── */
+:root {
+  /* HeroUI primary → Indigo 500 */
+  --heroui-primary-50:  238 242 255;
+  --heroui-primary-100: 224 231 255;
+  --heroui-primary-200: 199 210 254;
+  --heroui-primary-300: 165 180 252;
+  --heroui-primary-400: 129 140 248;
+  --heroui-primary-500: 99  102 241;
+  --heroui-primary-600: 79  70  229;
+  --heroui-primary-700: 67  56  202;
+  --heroui-primary-800: 55  48  163;
+  --heroui-primary-900: 49  46  129;
+  --heroui-primary-foreground: 255 255 255;
+  --heroui-primary: var(--heroui-primary-500);
+
+  color-scheme: light;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.dark {
+  color-scheme: dark;
+}
+
+/* ── Base ── */
+body {
+  background-color: #ffffff;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background-color: #0b0f19;
+  color: #f3f4f6;
+}
+
+/* ── Page shell ── */
+.page-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+/* ── Two-column input grid ── */
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+@media (max-width: 768px) {
+  .input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-content {
+    padding: 20px 16px;
+  }
+}
+
+/* ── Loading steps ── */
+.loading-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dark .loading-step {
+  color: #9ca3af;
+}
+
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+
+/* ── Fade-in animation ── */
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
