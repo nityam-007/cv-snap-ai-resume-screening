@@ -143,7 +143,7 @@ python main.py
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   React Frontend │    │  FastAPI Backend │    │  Neo4j Database │
+│  React Frontend │    │  FastAPI Backend │    │  Neo4j Database │
 │                 │────│                  │────│                 │
 │ • File Upload   │    │ • AI Processing  │    │ • Graph Storage │
 │ • Results UI    │    │ • Gemini API     │    │ • Relationships │
