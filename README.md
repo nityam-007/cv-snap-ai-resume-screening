@@ -4,7 +4,7 @@ An intelligent resume screening and ranking system that uses AI to analyze job d
 
 ## 🚀 Features
 
-- **AI-Powered Analysis**: Uses Google Gemini API for semantic understanding of skills and experience
+- **AI-Powered Analysis**: Uses Groq (Llama 3) and Google Gemini API for fast, semantic understanding of skills and experience
 - **Graph Database**: Neo4j for modeling complex candidate-skill-job relationships  
 - **Smart Ranking**: Combines semantic analysis with graph-based reasoning for accurate matching
 - **Explainable Results**: Natural language explanations for why candidates rank high or low
@@ -17,7 +17,7 @@ An intelligent resume screening and ranking system that uses AI to analyze job d
 
 ### Backend
 - **Python 3.8+** with FastAPI framework
-- **Google Gemini API** for AI-powered text analysis
+- **Groq & Google Gemini APIs** for AI-powered text analysis (switchable via config)
 - **Neo4j Graph Database** for relationship modeling
 - **PyPDF2 & python-docx** for document parsing
 - **Pydantic** for data validation
@@ -40,7 +40,7 @@ An intelligent resume screening and ranking system that uses AI to analyze job d
 - Python 3.8 or higher
 - Node.js 16 or higher
 - Neo4j Desktop
-- Google Gemini API Key ([Get one here](https://makersuite.google.com/app/apikey))
+- Groq API Key ([Get one here](https://console.groq.com/keys)) or Google Gemini API Key ([Get one here](https://makersuite.google.com/app/apikey))
 
 ## 🚀 Quick Start
 
@@ -75,7 +75,9 @@ pip install -r requirements.txt
 # Copy environment template
 cp .env.example .env
 
-# Edit .env file and add your API keys:
+# Edit .env file and add your configuration/keys:
+# AI_PROVIDER=groq
+# GROQ_API_KEY=your_groq_api_key_here
 # GOOGLE_API_KEY=your_gemini_api_key_here
 # NEO4J_PASSWORD=your_neo4j_password
 ```
@@ -152,7 +154,7 @@ python main.py
                                 │
                                 ▼
                        ┌─────────────────┐
-                       │   Gemini API    │
+                       │ Groq/Gemini API │
                        │                 │
                        │ • Skill Extract │
                        │ • Semantic NLP  │ 

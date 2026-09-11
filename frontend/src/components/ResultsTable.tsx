@@ -339,7 +339,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onReset }) => {
                           {getInitials(c.name)}
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-black dark:text-black">{c.name}</div>
+                          <div className="text-sm font-semibold text-black dark:text-white">{c.name}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">{c.email}</div>
                         </div>
                       </div>
@@ -401,7 +401,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, onReset }) => {
             {/* Header */}
             <div className="flex items-start justify-between p-6 border-b border-gray-100 dark:border-gray-800">
               <div>
-                <h3 className="text-lg font-bold text-black dark:text-black">{selectedCandidate.name}</h3>
+                <h3 className="text-lg font-bold text-black dark:text-white">{selectedCandidate.name}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{selectedCandidate.email}</p>
               </div>
               <button

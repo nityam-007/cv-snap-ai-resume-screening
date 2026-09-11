@@ -99,7 +99,7 @@ const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
           placeholder={`Enter job description here…\n\nExample:\nSenior Python Developer - Remote\n\nRequired Skills:\n• Python (5+ years)\n• Django or Flask\n• PostgreSQL\n• AWS\n• Docker`}
           className={[
             'w-full px-4 py-3 rounded-xl border text-sm leading-relaxed',
-            'text-black dark:text-black placeholder:text-gray-400 dark:placeholder:text-gray-500',
+            'text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500',
             'bg-white dark:bg-gray-950/60 resize-y focus:outline-none transition-all',
             'disabled:bg-gray-50 dark:disabled:bg-gray-900 disabled:cursor-not-allowed',
             isInvalid

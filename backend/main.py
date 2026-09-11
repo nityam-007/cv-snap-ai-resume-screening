@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 # Import our services
 from file_parser import DocumentParser
-from gemini_service import GeminiService
+from ai_service import get_ai_provider
 from neo4j_service import Neo4jService
 
 # Load environment variables
@@ -44,7 +44,7 @@ app.add_middleware(
 )
 # Initialize services
 document_parser = DocumentParser()
-gemini_service = GeminiService()
+ai_service = get_ai_provider()
 neo4j_service = Neo4jService()
 
 # Configuration
@@ -56,7 +56,7 @@ class CVSnapProcessor:
     
     def __init__(self):
         self.document_parser = document_parser
-        self.gemini_service = gemini_service
+        self.ai_service = ai_service
         self.neo4j_service = neo4j_service
     
     async def process_resumes(self, job_description: str, resume_files: List[UploadFile]) -> Dict[str, Any]:
@@ -81,7 +81,7 @@ class CVSnapProcessor:
             
             # Step 1: Extract job requirements using Gemini AI
             logger.info("Extracting job requirements...")
-            job_data = self.gemini_service.extract_job_requirements(job_description)
+            job_data = self.ai_service.extract_job_requirements(job_description)
             job_data['id'] = job_id
             
             # Step 2: Create job node in Neo4j
@@ -122,7 +122,7 @@ class CVSnapProcessor:
                     # Get candidate data from Neo4j or storage
                     candidate_data = self._get_candidate_data(candidate['candidate_id'])
                     if candidate_data:
-                        explanation = self.gemini_service.generate_match_explanation(
+                        explanation = self.ai_service.generate_match_explanation(
                             candidate_data, job_data, candidate
                         )
                         candidate['explanation'] = explanation
@@ -174,7 +174,7 @@ class CVSnapProcessor:
         
         # Extract candidate profile using Gemini AI
         logger.info(f"Extracting profile from: {resume_file.filename}")
-        candidate_data = self.gemini_service.extract_candidate_profile(
+        candidate_data = self.ai_service.extract_candidate_profile(
             resume_text, resume_file.filename
         )
         
@@ -195,6 +195,10 @@ class CVSnapProcessor:
         # Create experience nodes
         if candidate_data.get('experience'):
             self.neo4j_service.create_experience_nodes(candidate_id, candidate_data['experience'])
+            
+        # Create education nodes
+        if candidate_data.get('education'):
+            self.neo4j_service.create_education_nodes(candidate_id, candidate_data['education'])
         
         # Store candidate data for later reference (in production, use proper storage)
         self._store_candidate_data(candidate_id, candidate_data)
